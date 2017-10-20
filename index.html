@@ -146,6 +146,13 @@ Result:
 </div>
 <div id="getting-the-data" class="section level2">
 <h2>Getting the data</h2>
+<<<<<<< HEAD
+=======
+<pre class="r"><code>library(knitr)
+library(caret)
+library(ggplot2)
+library(reshape2)</code></pre>
+>>>>>>> 639b3dd68fb9cbd68a80dd5ff1b0ad08e367ab5b
 <pre class="r"><code># make this an external chunk that can be included in any file
 library(knitr)
 options(width = 100)
@@ -167,8 +174,13 @@ knit_hooks$set(plot = knitr:::hook_plot_html)</code></pre>
 urlTest &lt;- &quot;https://d396qusza40orc.cloudfront.net/predmachlearn/pml-testing.csv&quot;
 download.file(urlTrain, destfile = &quot;./data/pml-training.csv&quot;, method = &quot;curl&quot;)
 download.file(urlTest, destfile = &quot;./data/pml-testing.csv&quot;, method = &quot;curl&quot;)</code></pre>
+<<<<<<< HEAD
 <pre class="r"><code>pmlTrain &lt;- read.table(&quot;/Volumes/s/R programming/data/pml-training.csv&quot;, header = TRUE, sep = &quot;,&quot;)
 pmlTest &lt;- read.table(&quot;/Volumes/s/R programming/data/pml-testing.csv&quot;, header = TRUE, sep = &quot;,&quot;)
+=======
+<pre class="r"><code>pmlTrain &lt;- read.table(&quot;./data/pml-training.csv&quot;, header = TRUE, sep = &quot;,&quot;)
+pmlTest &lt;- read.table(&quot;./data/pml-testing.csv&quot;, header = TRUE, sep = &quot;,&quot;)
+>>>>>>> 639b3dd68fb9cbd68a80dd5ff1b0ad08e367ab5b
 dim(pmlTrain);dim(pmlTest);table(pmlTrain$classe)</code></pre>
 <pre><code>[1] 19622   160</code></pre>
 <pre><code>[1]  20 160</code></pre>
@@ -202,7 +214,12 @@ test20Final &lt;- test20[, -highlyCorrelated]</code></pre>
 </div>
 <div id="further-feature-selection-using-feature-plot." class="section level3">
 <h3>further feature selection using feature plot.</h3>
+<<<<<<< HEAD
 <pre class="r"><code>for (i in 1:34){
+=======
+<pre class="r"><code>names(rDatFinal)
+for (i in 1:34){
+>>>>>>> 639b3dd68fb9cbd68a80dd5ff1b0ad08e367ab5b
         fplot &lt;- featurePlot(x=rDatFinal[,i],
             y = rDatFinal$classe,
             plot=&quot;density&quot;, 
