@@ -1,0 +1,223 @@
+---
+title: "Practical Machine Learning Project"
+author: "Rui Lian"
+date: "Sep, 2017"
+output:
+  html_document: default
+  word_document: default
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Background and objectives
+    Inertial detectors are used to monitor subjects' activities. Data could be modeled to predict the type and quality of subjects' activity. 
+    In this project, dumbbell lifting subjects were monitored by 9 degrees inertial measurement unit(IMU) attatched to 1: arm, 2: belt; 3:dumbbell. Sujbects are asked to perform the "right" lifting and "wrong" lifting. 
+    Further information for the data generation could be found:http://groupware.les.inf.puc-rio.br/har. 
+    The objectives of this analysis is to select features from hundreds of predictors and model the type of activity with key predictors. 
+    Further, Model will be applied to test dataset.  
+    
+## Executive summary
+    Data preprocessing:
+        * remove zero and near-zero value; 
+        * remove highly correlated variables using cor function; 
+        * further feature plot to remove variables that are dominated by certain value. 
+    Modeling: 
+        * K-fold random forest was used with repeated cross validation. 
+    Result: 
+        * The model is very effective to predict; 
+        * Based on 24 predictors (see below section "the variable importance."), the model accuracy is 0.98 and the test set accuracy is 0.98; 
+        * Based on the model, the prediction of 20 sample is :B A C A A E D B A A B C B A E E A B B B, with one error. 
+
+## Getting the data
+
+```{r, cache=TRUE, include=FALSE}
+library(knitr)
+library(caret)
+library(ggplot2)
+library(reshape2)
+```
+
+
+```{r}
+# make this an external chunk that can be included in any file
+library(knitr)
+options(width = 100)
+opts_chunk$set(message = F, error = F, warning = F, comment = NA, fig.align = 'center', dpi = 100, tidy = F, cache.path = '.cache/', fig.path = 'fig/')
+
+options(xtable.type = 'html')
+knit_hooks$set(inline = function(x) {
+  if(is.numeric(x)) {
+    round(x, getOption('digits'))
+  } else {
+    paste(as.character(x), collapse = ', ')
+  }
+})
+knit_hooks$set(plot = knitr:::hook_plot_html)
+```
+
+
+
+```{r, eval=FALSE, cache=TRUE}
+if (!file.exists("data")) {
+    dir.create("data")
+}
+```
+
+
+```{r, eval=FALSE, cache=TRUE}
+urlTrain <- "https://d396qusza40orc.cloudfront.net/predmachlearn/pml-training.csv"
+urlTest <- "https://d396qusza40orc.cloudfront.net/predmachlearn/pml-testing.csv"
+download.file(urlTrain, destfile = "./data/pml-training.csv", method = "curl")
+download.file(urlTest, destfile = "./data/pml-testing.csv", method = "curl")
+```
+
+
+```{r, cache=TRUE}
+pmlTrain <- read.table("/Volumes/s/R programming/data/pml-training.csv", header = TRUE, sep = ",")
+pmlTest <- read.table("/Volumes/s/R programming/data/pml-testing.csv", header = TRUE, sep = ",")
+dim(pmlTrain);dim(pmlTest);table(pmlTrain$classe)
+```
+
+
+### data preparation: zero, near-near removing.  
+```{r, cache=TRUE}
+set.seed(38360)
+# nzv in training set. 
+nzvTrain <- nearZeroVar(pmlTrain)
+# nzv in testing set. 
+nzvTest <- nearZeroVar(pmlTest)
+# merge the two nzv index. 
+nzv <- unique(c(nzvTrain, nzvTest))
+# remove nzv values in training an test of 20 samples. 
+rDat <- pmlTrain[, -nzv]
+test20 <- pmlTest[, -nzv]
+rDatCls <- as.factor(rDat$classe)
+# remove non-relevant factors. 
+rDat <- rDat[, -c(2, 5)]
+test20 <- test20[, -c(2, 5)]
+```
+
+
+### feature selection using correlation. 
+```{r, cache=TRUE}
+set.seed(38360)
+rDatCor <- cor(rDat[,-57])
+highlyCorrelated <- findCorrelation(rDatCor, cutoff=0.75)
+rDatFinal <- rDat[, -highlyCorrelated]
+test20Final <- test20[, -highlyCorrelated]
+```
+
+### further feature selection using feature plot. 
+```{r, eval=FALSE, fig.height=10, fig.width=10, cache=TRUE}
+for (i in 1:34){
+        fplot <- featurePlot(x=rDatFinal[,i],
+            y = rDatFinal$classe,
+            plot="density", 
+            alpha = 0.8)
+        print(fplot)
+        
+}
+```
+
+
+# further remove values of  highly skewed . 
+```{r, cache=TRUE}
+rDatFinal <- rDatFinal[, -c(1, 2, 3, 4, 5, 6, 23, 25, 28, 29)]
+test20Final <- test20Final[, -c(1, 2, 3, 4, 5, 6, 23, 25, 28, 29)]
+```
+
+
+### data partition
+```{r, cache=TRUE}
+inTrain <- createDataPartition(rDatFinal$classe, p = 0.75, list = FALSE)
+train <- rDatFinal[inTrain,]
+test <- rDatFinal[-inTrain,]
+```
+
+### training control. 
+```{r, cache=TRUE}
+fitControl <- trainControl(method = "repeatedcv",
+                           number = 3,
+                           repeats = 10)
+```
+
+
+### random forest modeling. 
+```{r, eval=TRUE, message=FALSE, warning=FALSE, cache=TRUE}
+rf_Fit <- train(classe ~ ., data = train, 
+                 method = "rf", 
+                 trControl = fitControl,
+                 proximity = TRUE)
+
+```
+
+
+### evaluate the model accuracy
+```{r, eval=TRUE, cache=TRUE}
+rf_Fit
+```
+
+
+### the variable importance. 
+```{r, echo=TRUE, cache=TRUE}
+vImp <- varImp(rf_Fit)
+order(vImp$importance);names(train)
+```
+
+### evaluate the partitioned test set. 
+```{r, echo=TRUE, cache=TRUE}
+predictions <- predict(rf_Fit, newdata = test[, -35])
+```
+
+
+### calculate the out-of sample error. 
+```{r, echo=TRUE, cache=TRUE}
+confusionMatrix(predictions, test$classe)
+```
+
+
+
+### predict the 20 samples. 
+```{r, echo=TRUE, cache=TRUE}
+test20predict1 <- predict(rf_Fit, newdata = test20Final[, -28])
+test20predict1
+```
+
+### Discussion
+    If more predictors were included(Model not shown here),  100% accuracy of the 20 sample could be attained. But I'm use a "loose" model here to explore the flexibility of the model. 
+    In five experiments with different in-sample accuracy, every sample except No. 3 could be well predicted. For example, in above model with in-sample error of 0.9747, 19 test samples are predicted correctly. But sample No3 was mis-predicted from "classe B" to "classe C". Why is sample No3 vulnerable?
+
+```{r, echo=TRUE, fig.height=10, fig.width=15, cache=TRUE}
+# data of No3 sample in test set, 
+sample3 <- test20Final[3, -25]
+# generate two same row and labeled each row with "B" and "C"
+sample3 <- rbind(sample3, sample3)
+sample3$classe <- c("B", "C")
+
+# melt sample 3 data. 
+sample3.melt <- melt(sample3, id.vars = "classe", 
+                     value.name = "var", 
+                     variable.name = "predictors")
+# melt train data. 
+train.melt <- melt(train, id.vars = "classe",
+                   value.name = "var", 
+                   variable.name = "predictors")
+# plotting to observe the data of sample3 in classe B and classe C
+g <- ggplot(data = train.melt, 
+            aes(x = predictors, y= var))
+g <- g + geom_boxplot()
+g <- g + geom_point(data = sample3.melt, 
+                    aes(x = predictors, y = var, colour = classe), 
+                    size = 5, alpha = 0.5)
+g <- g + facet_grid(classe~.)
+g
+```
+
+From this plot, we notice that there maybe two reasons for the mis-prediction of sample 3. 
+1) Data in classe B and C are very similar; 2) the value of predictors of sample3 are in-between the "common" range of both B and C. So the model makes mistakes. 
+
+
+
+
